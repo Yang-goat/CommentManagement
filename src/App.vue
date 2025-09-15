@@ -1,85 +1,100 @@
-<script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
-</script>
-
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
-
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
-
-      <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/about">About</RouterLink>
-      </nav>
-    </div>
-  </header>
-
-  <RouterView />
+  <div class="app-container">
+    <el-container v-if="authStore.isAuthenticated">
+      <el-aside width="200px">
+        <!-- 侧边栏 -->
+        <Sidebar />
+      </el-aside>
+      <el-container>
+        <el-header>
+          <!-- 头部 -->
+          <div class="header-content">
+            <span>评论管理系统</span>
+            <div class="user-info">
+              <span>{{ authStore.user?.username }}</span>
+              <el-button type="primary" link @click="handleLogout">退出登录</el-button>
+            </div>
+          </div>
+        </el-header>
+        <el-main>
+          <!-- 主体，根据侧边栏选中渲染对应组件 -->
+          <router-view />
+        </el-main>
+        <el-footer>
+          <!-- 底部 -->
+          @2025 个人博客评论管理系统
+        </el-footer>
+      </el-container>
+    </el-container>
+    <router-view v-else />
+  </div>
 </template>
 
+<script setup>
+import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from './stores/auth'
+import Sidebar from './components/Sidebar.vue';
+
+const router = useRouter()
+const authStore = useAuthStore()
+
+onMounted(() => {
+  authStore.initAuth()
+})
+
+const handleLogout = () => {
+  authStore.logout()
+  router.push('/login')
+}
+</script>
+
 <style scoped>
-header {
-  line-height: 1.5;
-  max-height: 100vh;
+.app-container {
+  height: 100vh;
+  overflow: hidden;
 }
 
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
+.el-container {
+  height: 100%;
 }
 
-nav {
-  width: 100%;
-  font-size: 12px;
+.el-header {
+  background-color: #409eff;
+  color: white;
+  line-height: 60px;
+  font-size: 18px;
+  padding: 0 20px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.el-aside {
+  background-color: #f5f5f5;
+  height: 100%;
+}
+
+.el-main {
+  background-color: #f0f2f5;
+  padding: 20px;
+  overflow-y: auto;
+  height: calc(100vh - 120px); /* 减去 header 和 footer 的高度 */
+}
+
+.el-footer {
+  background-color: #f5f5f5;
   text-align: center;
-  margin-top: 2rem;
-}
-
-nav a.router-link-exact-active {
-  color: var(--color-text);
-}
-
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
-}
-
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
-}
-
-nav a:first-of-type {
-  border: 0;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  nav {
-    text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
-
-    padding: 1rem 0;
-    margin-top: 1rem;
-  }
+  line-height: 60px;
+  color: #666;
 }
 </style>
