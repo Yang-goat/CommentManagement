@@ -9,9 +9,6 @@ const router = createRouter({
       name: 'Home',
       redirect: '/user/list'
     },
-
-    '
-  dfhuiwqefhgiusadhfliuchdkfvhwwfdd'
     {
       path: '/login',
       name: 'Login',
@@ -78,3 +75,4 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
+
