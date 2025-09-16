@@ -7,7 +7,7 @@
             <!-- 品牌标识 -->
             <div class="brand-logo">
                 <el-icon class="logo-icon"><Key /></el-icon>
-                <h1>管理系统</h1>
+                <h1>评论管理系统</h1>
             </div>
             
             <div class="card-title">
@@ -57,7 +57,7 @@
             
             <!-- 底部版权信息 -->
             <div class="footer-info">
-                ©  苏科大最牛宿舍16-415
+                ©GoatYang
             </div>
         </el-card>
     </div>
@@ -144,30 +144,31 @@ const login = async (formEl) => {
     justify-content: center;
     align-items: center;
     height: 100vh;
-    background-image: linear-gradient(135deg, #198227 0%, #60491eb5 100%);
+    background-image: url('@/assets/imgs/login-bg.jpg'); // 使用图片作为背景
+    background-size: cover; // 背景图片覆盖整个容器
+    background-position: center; // 背景图片居中
+    background-repeat: no-repeat; // 背景图片不重复
     position: relative;
     overflow: hidden;
 
-    // 背景装饰
+    // 背景装饰（半透明遮罩）
     .bg-decoration {
         position: absolute;
         width: 100%;
         height: 100%;
-        background-image: 
-            radial-gradient(circle at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 40%),
-            radial-gradient(circle at 80% 70%, rgba(255,255,255,0.1) 0%, transparent 40%);
-            
+        background-color: rgba(0, 0, 0, 0.3); // 半透明黑色遮罩
     }
 }
 
 .login-card {
     width: 420px;
     padding: 30px;
-    background-color: rgba(255, 255, 255, 0.95);
+    background-color: rgba(255, 255, 255, 0.85); // 稍微降低背景透明度
     border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     position: relative;
     transition: transform 0.3s ease;
+    backdrop-filter: blur(10px); // 背景模糊效果
     
     &:hover {
         transform: translateY(-5px);

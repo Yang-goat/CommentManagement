@@ -29,14 +29,21 @@
       <el-table-column prop="username" label="用户名" width="150" />
       <el-table-column prop="githubId" label="GitHub ID" width="150" />
       <el-table-column prop="email" label="邮箱" width="200" />
-      <el-table-column prop="registerTime" label="注册时间" width="200">
+      <el-table-column prop="registerTime" label="注册时间" width="200" sortable>
         <template #default="scope">
           {{ formatDate(scope.row.registerTime) }}
         </template>
       </el-table-column>
-      <el-table-column prop="lastLoginTime" label="最近登录时间" width="200">
+      <el-table-column prop="lastLoginTime" label="最近登录时间" width="200" sortable>
         <template #default="scope">
           {{ formatDate(scope.row.lastLoginTime) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="权限状态" width="120">
+        <template #default="scope">
+          <el-tag :type="scope.row.commentPermission ? 'success' : 'danger'">
+            {{ scope.row.commentPermission ? '启用' : '禁用' }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="180">
@@ -97,24 +104,6 @@
         </span>
       </template>
     </el-dialog>
-    
-    <!-- 编辑用户对话框 -->
-    <el-dialog v-model="editDialogVisible" title="编辑用户" width="500px">
-      <el-form :model="editForm" :rules="editRules" ref="editFormRef" label-width="80px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="editForm.username" />
-        </el-form-item>
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="editForm.email" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="editDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveUser">保存</el-button>
-        </span>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -140,24 +129,6 @@ const pagination = reactive({
   total: 0
 })
 
-// 编辑表单
-const editDialogVisible = ref(false)
-const editForm = reactive({
-  id: '',
-  username: '',
-  email: ''
-})
-
-const editRules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' }
-  ],
-  email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur'},
-    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
-  ]
-}
-
 // 权限表单
 const permissionDialogVisible = ref(false)
 const permissionForm = reactive({
@@ -167,7 +138,6 @@ const permissionForm = reactive({
   commentPermission: true
 })
 
-const editFormRef = ref()
 const permissionFormRef = ref()
 
 // 格式化日期
@@ -235,31 +205,6 @@ const resetSearch = () => {
   searchForm.email = ''
   searchForm.githubId = ''
   fetchUsers()
-}
-
-// 编辑用户
-const editUser = (user) => {
-  editForm.id = user.id
-  editForm.username = user.username
-  editForm.email = user.email
-  editDialogVisible.value = true
-}
-
-// 保存用户
-const saveUser = async () => {
-  if (!editFormRef.value) return
-  
-  await editFormRef.value.validate((valid) => {
-    if (valid) {
-      // 模拟更新用户
-      const index = users.value.findIndex(u => u.id === editForm.id)
-      if (index !== -1) {
-        users.value[index] = { ...users.value[index], ...editForm }
-        ElMessage.success('用户信息更新成功')
-        editDialogVisible.value = false
-      }
-    }
-  })
 }
 
 // 编辑权限

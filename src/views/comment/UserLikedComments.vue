@@ -1,13 +1,13 @@
 <template>
   <div class="user-liked-comments-container">
     <div class="header">
-      <h2>用户点赞的评论</h2>
+      <h2>用户点赞记录查询</h2>
     </div>
     
     <!-- 用户搜索区域 -->
     <div class="search-bar">
       <el-form :inline="true" :model="searchForm" class="demo-form-inline">
-        <el-form-item label="用户">
+        <el-form-item label="用户名">
           <el-input v-model="searchForm.user" placeholder="请输入用户名" />
         </el-form-item>
         <el-form-item>
@@ -18,8 +18,15 @@
     </div>
     
     <!-- 点赞评论表格 -->
-    <el-table :data="likedComments" style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
+    <el-table 
+      v-if="searchForm.user" 
+      :data="likedComments" 
+      style="width: 100%" 
+      v-loading="loading"
+      empty-text="暂无数据"
+      @sort-change="handleSortChange"
+    >
+      <el-table-column prop="id" label="ID" width="80" sortable="custom" />
       <el-table-column prop="username" label="用户名" width="120" />
       <el-table-column prop="articleTitle" label="文章标题" width="200" />
       <el-table-column prop="content" label="评论内容">
@@ -27,20 +34,25 @@
           <div class="comment-content">{{ scope.row.content }}</div>
         </template>
       </el-table-column>
-      <el-table-column prop="likes" label="点赞数" width="100">
+      <el-table-column prop="likes" label="点赞数" width="100" sortable="custom">
         <template #default="scope">
           <el-tag type="primary">{{ scope.row.likes }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="评论时间" width="200">
+      <el-table-column prop="likeTime" label="点赞时间" width="200" sortable="custom">
         <template #default="scope">
-          {{ formatDate(scope.row.createTime) }}
+          {{ formatDate(scope.row.likeTime) }}
         </template>
       </el-table-column>
     </el-table>
     
+    <!-- 未输入用户名时的提示 -->
+    <div v-else class="empty-prompt">
+      <el-empty description="请输入用户名查询用户点赞记录" />
+    </div>
+    
     <!-- 分页 -->
-    <div class="pagination-container">
+    <div v-if="searchForm.user" class="pagination-container">
       <el-pagination
         v-model:current-page="pagination.currentPage"
         v-model:page-size="pagination.pageSize"
@@ -67,6 +79,12 @@ const searchForm = reactive({
   user: ''
 })
 
+// 排序参数
+const sortParams = reactive({
+  prop: '',
+  order: ''
+})
+
 // 分页
 const pagination = reactive({
   currentPage: 1,
@@ -81,46 +99,91 @@ const formatDate = (dateString) => {
   return date.toLocaleString('zh-CN')
 }
 
+// 处理排序变化
+const handleSortChange = (sortInfo) => {
+  sortParams.prop = sortInfo.prop
+  sortParams.order = sortInfo.order
+  fetchLikedComments()
+}
+
 // 获取用户点赞的评论列表
 const fetchLikedComments = async () => {
+  if (!searchForm.user) return
+  
   loading.value = true
   try {
     // 模拟API调用
-    const mockLikedComments = [
+    let mockAllLikedComments = [
       {
         id: 1,
-        username: 'user1',
+        username: '张三',
         articleTitle: 'Vue3入门教程',
         content: '这篇文章写得非常好，学到了很多新知识！',
-        createTime: '2023-05-10T14:30:00Z',
+        likeTime: '2023-05-10T14:30:00Z',
         likes: 24
       },
       {
         id: 2,
-        username: 'user2',
+        username: '李四',
         articleTitle: 'React Hooks详解',
         content: '感谢分享，对我帮助很大',
-        createTime: '2023-05-12T09:15:00Z',
+        likeTime: '2023-05-12T09:15:00Z',
         likes: 18
       },
       {
-        id: 5,
-        username: 'user1',
+        id: 3,
+        username: '王五',
         articleTitle: 'Node.js实战',
         content: '实践性很强，适合入门',
-        createTime: '2023-05-20T13:40:00Z',
+        likeTime: '2023-05-20T13:40:00Z',
         likes: 27
+      },
+      {
+        id: 4,
+        username: '张三',
+        articleTitle: 'TypeScript进阶',
+        content: '深入浅出，讲得很清楚',
+        likeTime: '2023-06-01T10:20:00Z',
+        likes: 15
+      },
+      {
+        id: 5,
+        username: '李四',
+        articleTitle: 'Webpack优化策略',
+        content: '很实用的优化技巧',
+        likeTime: '2023-06-05T16:45:00Z',
+        likes: 32
       }
     ]
     
     // 根据搜索条件过滤数据
-    let filteredComments = mockLikedComments
-    if (searchForm.user) {
-      filteredComments = filteredComments.filter(comment => 
-        comment.username.includes(searchForm.user))
+    let filteredComments = mockAllLikedComments.filter(comment => 
+      comment.username.includes(searchForm.user))
+    
+    // 根据排序参数排序
+    if (sortParams.prop && sortParams.order) {
+      filteredComments.sort((a, b) => {
+        let aValue = a[sortParams.prop]
+        let bValue = b[sortParams.prop]
+        
+        // 对日期特殊处理
+        if (sortParams.prop === 'likeTime') {
+          aValue = new Date(aValue).getTime()
+          bValue = new Date(bValue).getTime()
+        }
+        
+        if (sortParams.order === 'ascending') {
+          return aValue > bValue ? 1 : -1
+        } else {
+          return aValue < bValue ? 1 : -1
+        }
+      })
     }
     
-    likedComments.value = filteredComments
+    // 分页处理
+    const start = (pagination.currentPage - 1) * pagination.pageSize
+    const end = start + pagination.pageSize
+    likedComments.value = filteredComments.slice(start, end)
     pagination.total = filteredComments.length
   } catch (error) {
     ElMessage.error('获取用户点赞评论列表失败')
@@ -138,8 +201,10 @@ const searchComments = () => {
 // 重置搜索
 const resetSearch = () => {
   searchForm.user = ''
-  pagination.currentPage = 1
-  fetchLikedComments()
+  likedComments.value = []
+  pagination.total = 0
+  sortParams.prop = ''
+  sortParams.order = ''
 }
 
 // 分页处理
@@ -154,7 +219,7 @@ const handleCurrentChange = (val) => {
 }
 
 onMounted(() => {
-  fetchLikedComments()
+  // 初始时不加载数据，需要用户输入用户名后查询
 })
 </script>
 
@@ -191,5 +256,9 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.empty-prompt {
+  padding: 40px 0;
 }
 </style>

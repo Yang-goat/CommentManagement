@@ -1,6 +1,7 @@
 <template>
   <el-menu
     :default-active="currentRoute"
+    :default-openeds="['1', '2']"
     class="el-menu-vertical"
     router
   >
