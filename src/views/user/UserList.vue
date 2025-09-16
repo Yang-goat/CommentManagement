@@ -13,6 +13,9 @@
         <el-form-item label="邮箱">
           <el-input v-model="searchForm.email" placeholder="请输入邮箱" />
         </el-form-item>
+        <el-form-item label="GitHub ID">
+          <el-input v-model="searchForm.githubId" placeholder="请输入GitHub ID" />
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="searchUsers">查询</el-button>
           <el-button @click="resetSearch">重置</el-button>
@@ -24,22 +27,27 @@
     <el-table :data="users" style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="username" label="用户名" width="150" />
+      <el-table-column prop="githubId" label="GitHub ID" width="150" />
       <el-table-column prop="email" label="邮箱" width="200" />
       <el-table-column prop="registerTime" label="注册时间" width="200">
         <template #default="scope">
           {{ formatDate(scope.row.registerTime) }}
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="100">
+      <el-table-column prop="lastLoginTime" label="最近登录时间" width="200">
         <template #default="scope">
-          <el-tag :type="scope.row.status === 'active' ? 'success' : 'danger'">
-            {{ scope.row.status === 'active' ? '正常' : '禁用' }}
-          </el-tag>
+          {{ formatDate(scope.row.lastLoginTime) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200">
+      <el-table-column label="操作" width="180">
         <template #default="scope">
-          <el-button size="small" @click="editUser(scope.row)">编辑</el-button>
+          <el-button 
+            size="small" 
+            type="primary" 
+            @click="editPermissions(scope.row)"
+          >
+            编辑权限
+          </el-button>
           <el-button 
             size="small" 
             type="danger" 
@@ -65,6 +73,31 @@
       />
     </div>
     
+    <!-- 编辑权限对话框 -->
+    <el-dialog v-model="permissionDialogVisible" title="编辑评论权限" width="500px">
+      <el-form :model="permissionForm" ref="permissionFormRef" label-width="100px">
+        <el-form-item label="用户名">
+          <el-input v-model="permissionForm.username" disabled />
+        </el-form-item>
+        <el-form-item label="GitHub ID">
+          <el-input v-model="permissionForm.githubId" disabled />
+        </el-form-item>
+        <el-form-item label="评论权限">
+          <el-switch
+            v-model="permissionForm.commentPermission"
+            active-text="启用"
+            inactive-text="禁用"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="permissionDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="savePermissions">保存</el-button>
+        </span>
+      </template>
+    </el-dialog>
+    
     <!-- 编辑用户对话框 -->
     <el-dialog v-model="editDialogVisible" title="编辑用户" width="500px">
       <el-form :model="editForm" :rules="editRules" ref="editFormRef" label-width="80px">
@@ -73,12 +106,6 @@
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="editForm.email" />
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="editForm.status" style="width: 100%">
-            <el-option label="正常" value="active" />
-            <el-option label="禁用" value="inactive" />
-          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -102,7 +129,8 @@ const loading = ref(false)
 // 搜索表单
 const searchForm = reactive({
   username: '',
-  email: ''
+  email: '',
+  githubId: ''
 })
 
 // 分页
@@ -117,8 +145,7 @@ const editDialogVisible = ref(false)
 const editForm = reactive({
   id: '',
   username: '',
-  email: '',
-  status: 'active'
+  email: ''
 })
 
 const editRules = {
@@ -126,12 +153,22 @@ const editRules = {
     { required: true, message: '请输入用户名', trigger: 'blur' }
   ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { required: true, message: '请输入邮箱', trigger: 'blur'},
     { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
   ]
 }
 
+// 权限表单
+const permissionDialogVisible = ref(false)
+const permissionForm = reactive({
+  id: '',
+  username: '',
+  githubId: '',
+  commentPermission: true
+})
+
 const editFormRef = ref()
+const permissionFormRef = ref()
 
 // 格式化日期
 const formatDate = (dateString) => {
@@ -149,25 +186,31 @@ const fetchUsers = async () => {
       {
         id: 1,
         username: 'admin',
+        githubId: 'gh-admin',
         email: 'admin@blog.com',
         registerTime: '2023-01-15T10:30:00Z',
-        status: 'active',
+        lastLoginTime: '2023-06-15T10:30:00Z',
+        commentPermission: true,
         isAdmin: true
       },
       {
         id: 2,
         username: 'user1',
+        githubId: 'gh-user1',
         email: 'user1@blog.com',
         registerTime: '2023-02-20T14:20:00Z',
-        status: 'active',
+        lastLoginTime: '2023-06-10T14:20:00Z',
+        commentPermission: true,
         isAdmin: false
       },
       {
         id: 3,
         username: 'user2',
+        githubId: 'gh-user2',
         email: 'user2@blog.com',
         registerTime: '2023-03-10T09:15:00Z',
-        status: 'inactive',
+        lastLoginTime: '2023-05-10T09:15:00Z',
+        commentPermission: false,
         isAdmin: false
       }
     ]
@@ -190,6 +233,7 @@ const searchUsers = () => {
 const resetSearch = () => {
   searchForm.username = ''
   searchForm.email = ''
+  searchForm.githubId = ''
   fetchUsers()
 }
 
@@ -198,7 +242,6 @@ const editUser = (user) => {
   editForm.id = user.id
   editForm.username = user.username
   editForm.email = user.email
-  editForm.status = user.status
   editDialogVisible.value = true
 }
 
@@ -217,6 +260,26 @@ const saveUser = async () => {
       }
     }
   })
+}
+
+// 编辑权限
+const editPermissions = (user) => {
+  permissionForm.id = user.id
+  permissionForm.username = user.username
+  permissionForm.githubId = user.githubId
+  permissionForm.commentPermission = user.commentPermission
+  permissionDialogVisible.value = true
+}
+
+// 保存权限
+const savePermissions = () => {
+  // 模拟更新权限
+  const index = users.value.findIndex(u => u.id === permissionForm.id)
+  if (index !== -1) {
+    users.value[index].commentPermission = permissionForm.commentPermission
+    ElMessage.success('评论权限更新成功')
+    permissionDialogVisible.value = false
+  }
 }
 
 // 删除用户
