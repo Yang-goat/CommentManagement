@@ -6,23 +6,23 @@
     </div>
     
     <!-- 点赞统计表格 -->
-    <el-table :data="sortedComments" style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
+    <el-table :data="pagedComments" style="width: 100%" v-loading="loading">
+      <el-table-column prop="id" label="评论ID" width="80" />
       <el-table-column prop="username" label="用户名" width="120" />
-      <el-table-column prop="articleTitle" label="文章标题" width="200" />
+      <el-table-column prop="articleTitle" label="文章路径" width="200" />
       <el-table-column prop="content" label="评论内容">
         <template #default="scope">
           <div class="comment-content">{{ truncateContent(scope.row.content) }}</div>
         </template>
       </el-table-column>
-      <el-table-column prop="likes" label="点赞数" width="100" sortable>
+      <el-table-column prop="likeCount" label="点赞数" width="100" sortable>
         <template #default="scope">
-          <el-tag type="primary">{{ scope.row.likes }}</el-tag>
+          <el-tag type="primary">{{ scope.row.likeCount }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="评论时间" width="200" sortable>
+      <el-table-column prop="createdAt" label="评论时间" width="200" sortable>
         <template #default="scope">
-          {{ formatDate(scope.row.createTime) }}
+          {{ formatDate(scope.row.createdAt) }}
         </template>
       </el-table-column>
       <el-table-column label="操作" width="200">
@@ -86,170 +86,150 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
+import { API_BASE } from '@/config'
 
-const router = useRouter()
-
-// 评论数据
-const comments = ref([])
+const allComments = ref([])
 const loading = ref(false)
 
-// 点赞用户相关
 const likedUsersDialogVisible = ref(false)
 const likedUsers = ref([])
 const usersLoading = ref(false)
 const currentComment = ref(null)
 
-// 分页
 const pagination = reactive({
   currentPage: 1,
   pageSize: 10,
   total: 0
 })
 
-// 点赞用户分页
 const usersPagination = reactive({
   currentPage: 1,
   pageSize: 10,
   total: 0
 })
 
-// 排序后的评论
-const sortedComments = computed(() => {
-  // 返回排序后的评论数据，默认按评论时间降序排列（最新评论在前）
-  const sorted = [...comments.value]
-  return sorted.sort((a, b) => new Date(b.createTime) - new Date(a.createTime))
+// ---------- 分页计算 ----------
+const pagedComments = computed(() => {
+  const start = (pagination.currentPage - 1) * pagination.pageSize
+  const end = start + pagination.pageSize
+  return allComments.value.slice(start, end)
 })
 
-// 分页后的点赞用户
 const pagedLikedUsers = computed(() => {
   const start = (usersPagination.currentPage - 1) * usersPagination.pageSize
   const end = start + usersPagination.pageSize
   return likedUsers.value.slice(start, end)
 })
 
-// 格式化日期
+// ---------- 监听 total 变化，防止 currentPage 溢出 ----------
+watch(() => pagination.total, (newTotal) => {
+  const maxPage = Math.max(1, Math.ceil(newTotal / pagination.pageSize))
+  if (pagination.currentPage > maxPage) {
+    pagination.currentPage = maxPage
+  }
+})
+
+watch(() => usersPagination.total, (newTotal) => {
+  const maxPage = Math.max(1, Math.ceil(newTotal / usersPagination.pageSize))
+  if (usersPagination.currentPage > maxPage) {
+    usersPagination.currentPage = maxPage
+  }
+})
+
+// ---------- 工具函数 ----------
 const formatDate = (dateString) => {
   if (!dateString) return ''
   const date = new Date(dateString)
   return date.toLocaleString('zh-CN')
 }
 
-// 截断评论内容
 const truncateContent = (content) => {
   if (!content) return ''
   return content.length > 50 ? content.substring(0, 50) + '...' : content
 }
 
-// 获取评论点赞数据
+// ---------- API ----------
 const fetchCommentLikes = async () => {
   loading.value = true
   try {
-    // 模拟API调用
-    const mockComments = [
-      {
-        id: 1,
-        username: 'user1',
-        articleTitle: 'Vue3入门教程',
-        content: '这篇文章写得非常好，学到了很多新知识！',
-        createTime: '2023-05-10T14:30:00Z',
-        likes: 24
-      },
-      {
-        id: 2,
-        username: 'user2',
-        articleTitle: 'React Hooks详解',
-        content: '感谢分享，对我帮助很大',
-        createTime: '2023-05-12T09:15:00Z',
-        likes: 18
-      },
-      {
-        id: 3,
-        username: 'user3',
-        articleTitle: 'JavaScript设计模式',
-        content: '内容很详细，值得收藏',
-        createTime: '2023-05-15T16:45:00Z',
-        likes: 32
-      },
-      {
-        id: 4,
-        username: 'user4',
-        articleTitle: 'CSS进阶技巧',
-        content: '学到了很多实用的技巧，非常感谢！',
-        createTime: '2023-05-18T11:20:00Z',
-        likes: 15
-      },
-      {
-        id: 5,
-        username: 'user5',
-        articleTitle: 'Node.js实战',
-        content: '实践性很强，适合入门',
-        createTime: '2023-05-20T13:40:00Z',
-        likes: 27
-      }
-    ]
-    
-    comments.value = mockComments
-    pagination.total = mockComments.length
+    const res = await fetch(`${API_BASE}/admin/api/comments`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    })
+    const data = await res.json()
+
+    if (!res.ok || data.code !== 200) {
+      throw new Error(data.message || '获取评论点赞数据失败')
+    }
+
+    allComments.value = data.data.map(c => ({
+      id: c.commentId,
+      username: c.user?.username,
+      articleTitle: c.articlePath,
+      content: c.content,
+      likeCount: c.likeCount,
+      createdAt: c.createdAt
+    }))
+
+    pagination.total = allComments.value.length
+    pagination.currentPage = 1
   } catch (error) {
-    ElMessage.error('获取评论点赞数据失败')
+    ElMessage.error(error.message)
   } finally {
     loading.value = false
   }
 }
 
-// 获取点赞用户列表
 const fetchLikedUsers = async (comment) => {
   usersLoading.value = true
   try {
-    // 模拟API调用获取点赞用户列表
-    // 生成更多模拟数据以展示分页效果
-    const mockLikedUsers = []
-    for (let i = 1; i <= 35; i++) {
-      mockLikedUsers.push({
-        id: 100 + i,
-        username: `user${i}`,
-        email: `user${i}@example.com`,
-        likeTime: `2023-05-11T${(i % 24).toString().padStart(2, '0')}:${(i % 60).toString().padStart(2, '0')}:00Z`
-      })
+    const res = await fetch(`${API_BASE}/admin/api/comment-likes/comment/${comment.id}/all`, {
+      credentials: 'include'
+    })
+    const data = await res.json()
+
+    if (!res.ok || data.code !== 200) {
+      throw new Error(data.message || '获取点赞用户列表失败')
     }
-    
-    likedUsers.value = mockLikedUsers
-    usersPagination.total = mockLikedUsers.length
+
+    likedUsers.value = data.data.map(u => ({
+      id: u.user?.id || u.id,
+      username: u.user?.username || u.username,
+      email: u.user?.email || u.email,
+      likeTime: u.createdAt || u.likeTime
+    }))
+
+    usersPagination.total = likedUsers.value.length
     usersPagination.currentPage = 1
   } catch (error) {
-    ElMessage.error('获取点赞用户列表失败')
+    ElMessage.error(error.message)
   } finally {
     usersLoading.value = false
   }
 }
 
-// 查看点赞用户
 const viewLikedUsers = async (comment) => {
   currentComment.value = comment
   likedUsersDialogVisible.value = true
   await fetchLikedUsers(comment)
 }
 
-// 刷新数据
 const refreshData = () => {
   fetchCommentLikes()
 }
 
-// 分页处理
+// ---------- 分页事件 ----------
 const handleSizeChange = (val) => {
   pagination.pageSize = val
-  fetchCommentLikes()
+  pagination.currentPage = 1
 }
 
 const handleCurrentChange = (val) => {
   pagination.currentPage = val
-  fetchCommentLikes()
 }
 
-// 点赞用户分页处理
 const handleUsersSizeChange = (val) => {
   usersPagination.pageSize = val
   usersPagination.currentPage = 1
@@ -291,18 +271,5 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .el-button {
-    width: 100%;
-    margin-top: 10px;
-  }
 }
 </style>

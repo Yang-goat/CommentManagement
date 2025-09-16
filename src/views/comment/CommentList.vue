@@ -10,8 +10,8 @@
         <el-form-item label="用户">
           <el-input v-model="searchForm.user" placeholder="请输入用户名" />
         </el-form-item>
-        <el-form-item label="文章">
-          <el-input v-model="searchForm.article" placeholder="请输入文章标题" />
+        <el-form-item label="文章路径">
+          <el-input v-model="searchForm.article" placeholder="请输入文章路径" />
         </el-form-item>
         <el-form-item label="时间范围">
           <el-date-picker
@@ -21,7 +21,7 @@
             start-placeholder="开始日期"
             end-placeholder="结束日期"
             format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
+            value-format="YYYY-MM-DDTHH:mm:ss"
           />
         </el-form-item>
         <el-form-item>
@@ -32,31 +32,32 @@
     </div>
     
     <!-- 评论表格 -->
-    <el-table :data="comments" style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="username" label="用户名" width="120" />
-      <el-table-column prop="articleTitle" label="文章标题" width="200" />
+    <el-table :data="displayComments" style="width: 100%" v-loading="loading">
+      <el-table-column prop="commentId" label="评论ID" width="100" />
+      <el-table-column prop="userId" label="用户ID" width="120" />
+      <el-table-column prop="username" label="用户名" width="150" />
+      <el-table-column prop="articlePath" label="文章路径" width="200" />
       <el-table-column prop="content" label="评论内容">
         <template #default="scope">
           <div class="comment-content">{{ scope.row.content }}</div>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="评论时间" width="200">
+      <el-table-column prop="createdAt" label="评论时间" width="200">
         <template #default="scope">
-          {{ formatDate(scope.row.createTime) }}
+          {{ formatDate(scope.row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200">
-  <template #default="scope">
-    <el-button 
-      size="small" 
-      type="danger" 
-      @click="deleteComment(scope.row.id)"
-    >
-      删除
-    </el-button>
-  </template>
-</el-table-column>
+      <el-table-column label="操作" width="120">
+        <template #default="scope">
+          <el-button 
+            size="small" 
+            type="danger" 
+            @click="deleteComment(scope.row.commentId)"
+          >
+            删除
+          </el-button>
+        </template>
+      </el-table-column>
     </el-table>
     
     <!-- 分页 -->
@@ -77,12 +78,10 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useRouter } from 'vue-router'
+import { API_BASE } from '@/config'
 
-const router = useRouter()
-
-// 模拟数据
-const comments = ref([])
+const allComments = ref([])       // 全量评论数据
+const displayComments = ref([])   // 当前页展示数据
 const loading = ref(false)
 
 // 搜索表单
@@ -106,68 +105,80 @@ const formatDate = (dateString) => {
   return date.toLocaleString('zh-CN')
 }
 
-// 获取评论列表
+// 扁平化函数
+const flattenComments = (list) => {
+  return list.map(c => ({
+    commentId: c.commentId,
+    userId: c.user?.id,
+    username: c.user?.username,
+    avatarUrl: c.user?.avatarUrl,
+    articlePath: c.articlePath,
+    content: c.content,
+    createdAt: c.createdAt,
+    likeCount: c.likeCount
+  }))
+}
+
+// 更新当前页数据
+const updateDisplayComments = () => {
+  const start = (pagination.currentPage - 1) * pagination.pageSize
+  const end = start + pagination.pageSize
+  displayComments.value = allComments.value.slice(start, end)
+}
+
+// 获取所有评论
 const fetchComments = async () => {
   loading.value = true
   try {
-    // 模拟API调用
-    const mockComments = [
-      {
-        id: 1,
-        username: 'user1',
-        articleTitle: 'Vue3入门教程',
-        content: '这篇文章写得非常好，学到了很多新知识！',
-        createTime: '2023-05-10T14:30:00Z'
-      },
-      {
-        id: 2,
-        username: 'user2',
-        articleTitle: 'React Hooks详解',
-        content: '感谢分享，对我帮助很大',
-        createTime: '2023-05-12T09:15:00Z'
-      },
-      {
-        id: 3,
-        username: 'user3',
-        articleTitle: 'JavaScript设计模式',
-        content: '内容很详细，值得收藏',
-        createTime: '2023-05-15T16:45:00Z'
-      }
-    ]
-    
-    comments.value = mockComments
-    pagination.total = mockComments.length
+    const res = await fetch(API_BASE + '/admin/api/comments', {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    })
+    const data = await res.json()
+    if (!res.ok || data.code !== 200) throw new Error(data.message || '获取评论失败')
+
+    allComments.value = flattenComments(data.data)
+    pagination.total = allComments.value.length
+    pagination.currentPage = 1
+    updateDisplayComments()
   } catch (error) {
-    ElMessage.error('获取评论列表失败')
+    ElMessage.error(error.message)
   } finally {
     loading.value = false
   }
 }
 
 // 搜索评论
-const searchComments = () => {
-  // 检查时间范围
-  if (searchForm.dateRange && searchForm.dateRange.length === 2) {
-    const startDate = new Date(searchForm.dateRange[0]);
-    const endDate = new Date(searchForm.dateRange[1]);
-    const today = new Date();
-    // 将时间设置为当天的开始，只比较日期部分
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    
-    if (startDate > endDate) {
-      ElMessage.warning('开始日期不能晚于结束日期');
-      return;
+const searchComments = async () => {
+  try {
+    let url = ''
+    if (searchForm.user) {
+      url = `/admin/api/comments/username/${searchForm.user}`
+    } else if (searchForm.article) {
+      url = `/admin/api/comments/article/${searchForm.article}`
+    } else if (searchForm.dateRange.length === 2) {
+      const [start, end] = searchForm.dateRange
+      url = `/admin/api/comments/time?startTime=${start}&endTime=${end}`
+    } else {
+      return fetchComments()
     }
-    
-    if (endDate > today) {
-      ElMessage.warning('结束日期不能超过当前日期');
-      return;
-    }
+
+    const res = await fetch(API_BASE + url, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    })
+    const data = await res.json()
+    console.log(data);
+
+    if (!res.ok || data.code !== 200) throw new Error(data.message || '搜索失败')
+
+    allComments.value = flattenComments(Array.isArray(data.data) ? data.data : [data.data])
+    pagination.total = allComments.value.length
+    pagination.currentPage = 1
+    updateDisplayComments()
+  } catch (err) {
+    ElMessage.error(err.message)
   }
-  
-  fetchComments();
 }
 
 // 重置搜索
@@ -179,29 +190,40 @@ const resetSearch = () => {
 }
 
 // 删除评论
-const deleteComment = (id) => {
+const deleteComment = (commentId) => {
   ElMessageBox.confirm('确定要删除该评论吗？此操作不可撤销。', '确认删除', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    // 模拟删除操作
-    comments.value = comments.value.filter(comment => comment.id !== id)
-    ElMessage.success('评论删除成功')
-  }).catch(() => {
-    // 用户取消删除
-  })
+  }).then(async () => {
+    try {
+      const res = await fetch(API_BASE + `/admin/api/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      })
+      const data = await res.json()
+      if (!res.ok || data.code !== 200) throw new Error(data.message || '删除失败')
+
+      allComments.value = allComments.value.filter(comment => comment.commentId !== commentId)
+      pagination.total = allComments.value.length
+      updateDisplayComments()
+      ElMessage.success('评论删除成功')
+    } catch (err) {
+      ElMessage.error(err.message)
+    }
+  }).catch(() => {})
 }
 
 // 分页处理
 const handleSizeChange = (val) => {
   pagination.pageSize = val
-  fetchComments()
+  pagination.currentPage = 1
+  updateDisplayComments()
 }
-
 const handleCurrentChange = (val) => {
   pagination.currentPage = val
-  fetchComments()
+  updateDisplayComments()
 }
 
 onMounted(() => {
@@ -244,7 +266,6 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-/* 响应式表格 */
 @media (max-width: 768px) {
   .el-table-column {
     padding: 5px;

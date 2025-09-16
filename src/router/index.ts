@@ -55,7 +55,9 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   authStore.initAuth()
-  
+
+  document.title = typeof to.meta.title === 'string' ? to.meta.title : '评论管理系统@goatyang.com';
+
   if (to.matched.some(record => record.meta.requiresAuth) && !authStore.isAuthenticated) {
     // 如果访问需要认证的页面但未登录，重定向到登录页
     next('/login')

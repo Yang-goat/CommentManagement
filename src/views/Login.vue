@@ -70,7 +70,6 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 
-// 路由对象
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -107,7 +106,7 @@ const login = async (formEl) => {
             if (valid) {
                 console.log('登录信息:', loginForm)
                 // 检查用户名和密码是否为预设值
-                if (loginForm.username === 'root' && loginForm.password === '123456') {
+                if (loginForm.username === 'admin' && loginForm.password === '123456') {
                     // 模拟验证延迟
                     setTimeout(() => {
                         // 登录成功，设置用户信息

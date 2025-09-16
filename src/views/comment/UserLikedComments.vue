@@ -20,28 +20,28 @@
     <!-- 点赞评论表格 -->
     <el-table 
       v-if="searchForm.user" 
-      :data="likedComments" 
+      :data="pagedComments" 
       style="width: 100%" 
       v-loading="loading"
       empty-text="暂无数据"
       @sort-change="handleSortChange"
     >
-      <el-table-column prop="id" label="ID" width="80" sortable="custom" />
-      <el-table-column prop="username" label="用户名" width="120" />
-      <el-table-column prop="articleTitle" label="文章标题" width="200" />
-      <el-table-column prop="content" label="评论内容">
+      <el-table-column prop="id" label="点赞ID" width="100" />
+      <el-table-column prop="user.username" label="用户名" width="120" />
+      <el-table-column prop="comment.articleTitle" label="文章标题" width="200" />
+      <el-table-column prop="comment.content" label="评论内容">
         <template #default="scope">
-          <div class="comment-content">{{ scope.row.content }}</div>
+          <div class="comment-content">{{ scope.row.comment?.content }}</div>
         </template>
       </el-table-column>
-      <el-table-column prop="likes" label="点赞数" width="100" sortable="custom">
+      <!-- <el-table-column prop="comment.likes" label="评论点赞数" width="120" sortable="custom">
         <template #default="scope">
-          <el-tag type="primary">{{ scope.row.likes }}</el-tag>
+          <el-tag type="primary">{{ scope.row.comment?.likes }}</el-tag>
         </template>
-      </el-table-column>
-      <el-table-column prop="likeTime" label="点赞时间" width="200" sortable="custom">
+      </el-table-column> -->
+      <el-table-column prop="createdAt" label="点赞时间" width="200" sortable="custom">
         <template #default="scope">
-          {{ formatDate(scope.row.likeTime) }}
+          {{ formatDate(scope.row.createdAt) }}
         </template>
       </el-table-column>
     </el-table>
@@ -67,11 +67,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { API_BASE } from '@/config'
 
 // 用户点赞的评论数据
-const likedComments = ref([])
+const allLikedComments = ref([])
 const loading = ref(false)
 
 // 搜索表单
@@ -103,105 +104,72 @@ const formatDate = (dateString) => {
 const handleSortChange = (sortInfo) => {
   sortParams.prop = sortInfo.prop
   sortParams.order = sortInfo.order
-  fetchLikedComments()
 }
 
+// 分页 + 排序后的数据
+const pagedComments = computed(() => {
+  let data = [...allLikedComments.value]
+
+  // 排序
+  if (sortParams.prop && sortParams.order) {
+    data.sort((a, b) => {
+      let aValue = a[sortParams.prop]
+      let bValue = b[sortParams.prop]
+
+      if (sortParams.prop === 'createdAt') {
+        aValue = new Date(aValue).getTime()
+        bValue = new Date(bValue).getTime()
+      }
+
+      if (sortParams.order === 'ascending') {
+        return aValue > bValue ? 1 : -1
+      } else {
+        return aValue < bValue ? 1 : -1
+      }
+    })
+  }
+
+  // 分页
+  pagination.total = data.length
+  const start = (pagination.currentPage - 1) * pagination.pageSize
+  const end = start + pagination.pageSize
+  return data.slice(start, end)
+})
+
 // 获取用户点赞的评论列表
-const fetchLikedComments = async () => {
-  if (!searchForm.user) return
-  
+const fetchLikedComments = async (username) => {
   loading.value = true
   try {
-    // 模拟API调用
-    let mockAllLikedComments = [
-      {
-        id: 1,
-        username: '张三',
-        articleTitle: 'Vue3入门教程',
-        content: '这篇文章写得非常好，学到了很多新知识！',
-        likeTime: '2023-05-10T14:30:00Z',
-        likes: 24
-      },
-      {
-        id: 2,
-        username: '李四',
-        articleTitle: 'React Hooks详解',
-        content: '感谢分享，对我帮助很大',
-        likeTime: '2023-05-12T09:15:00Z',
-        likes: 18
-      },
-      {
-        id: 3,
-        username: '王五',
-        articleTitle: 'Node.js实战',
-        content: '实践性很强，适合入门',
-        likeTime: '2023-05-20T13:40:00Z',
-        likes: 27
-      },
-      {
-        id: 4,
-        username: '张三',
-        articleTitle: 'TypeScript进阶',
-        content: '深入浅出，讲得很清楚',
-        likeTime: '2023-06-01T10:20:00Z',
-        likes: 15
-      },
-      {
-        id: 5,
-        username: '李四',
-        articleTitle: 'Webpack优化策略',
-        content: '很实用的优化技巧',
-        likeTime: '2023-06-05T16:45:00Z',
-        likes: 32
-      }
-    ]
-    
-    // 根据搜索条件过滤数据
-    let filteredComments = mockAllLikedComments.filter(comment => 
-      comment.username.includes(searchForm.user))
-    
-    // 根据排序参数排序
-    if (sortParams.prop && sortParams.order) {
-      filteredComments.sort((a, b) => {
-        let aValue = a[sortParams.prop]
-        let bValue = b[sortParams.prop]
-        
-        // 对日期特殊处理
-        if (sortParams.prop === 'likeTime') {
-          aValue = new Date(aValue).getTime()
-          bValue = new Date(bValue).getTime()
-        }
-        
-        if (sortParams.order === 'ascending') {
-          return aValue > bValue ? 1 : -1
-        } else {
-          return aValue < bValue ? 1 : -1
-        }
-      })
+    const resp = await fetch(`${API_BASE}/admin/api/comment-likes/username/${encodeURIComponent(username)}`)
+    const res = await resp.json()
+    console.log(res);
+    if (res.code === 200) {
+      allLikedComments.value = res.data
+      console.log(allLikedComments);
+    } else {
+      ElMessage.error(res.message || '获取用户点赞评论列表失败')
     }
-    
-    // 分页处理
-    const start = (pagination.currentPage - 1) * pagination.pageSize
-    const end = start + pagination.pageSize
-    likedComments.value = filteredComments.slice(start, end)
-    pagination.total = filteredComments.length
   } catch (error) {
-    ElMessage.error('获取用户点赞评论列表失败')
+    ElMessage.error('请求失败: ' + error.message)
   } finally {
     loading.value = false
   }
 }
 
 // 搜索评论
-const searchComments = () => {
+const searchComments = async () => {
+  if (!searchForm.user) {
+    ElMessage.warning('请输入用户名')
+    return
+  }
   pagination.currentPage = 1
-  fetchLikedComments()
+  await fetchLikedComments(searchForm.user)
 }
 
 // 重置搜索
 const resetSearch = () => {
   searchForm.user = ''
-  likedComments.value = []
+  allLikedComments.value = []
   pagination.total = 0
   sortParams.prop = ''
   sortParams.order = ''
@@ -210,17 +178,11 @@ const resetSearch = () => {
 // 分页处理
 const handleSizeChange = (val) => {
   pagination.pageSize = val
-  fetchLikedComments()
 }
 
 const handleCurrentChange = (val) => {
   pagination.currentPage = val
-  fetchLikedComments()
 }
-
-onMounted(() => {
-  // 初始时不加载数据，需要用户输入用户名后查询
-})
 </script>
 
 <style scoped>

@@ -24,25 +24,25 @@
     </div>
     
     <!-- 用户表格 -->
-    <el-table :data="users" style="width: 100%" v-loading="loading">
+    <el-table :data="displayUsers" style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="username" label="用户名" width="150" />
       <el-table-column prop="githubId" label="GitHub ID" width="150" />
       <el-table-column prop="email" label="邮箱" width="200" />
-      <el-table-column prop="registerTime" label="注册时间" width="200" sortable>
+      <el-table-column prop="createdAt" label="注册时间" width="200" sortable>
         <template #default="scope">
-          {{ formatDate(scope.row.registerTime) }}
+          {{ formatDate(scope.row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column prop="lastLoginTime" label="最近登录时间" width="200" sortable>
+      <el-table-column prop="updatedAt" label="最近登录时间" width="200" sortable>
         <template #default="scope">
-          {{ formatDate(scope.row.lastLoginTime) }}
+          {{ formatDate(scope.row.updatedAt) }}
         </template>
       </el-table-column>
       <el-table-column label="权限状态" width="120">
         <template #default="scope">
-          <el-tag :type="scope.row.commentPermission ? 'success' : 'danger'">
-            {{ scope.row.commentPermission ? '启用' : '禁用' }}
+          <el-tag :type="scope.row.comPermissions ? 'success' : 'danger'">
+            {{ scope.row.comPermissions ? '启用' : '禁用' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -66,6 +66,7 @@
         </template>
       </el-table-column>
     </el-table>
+
     
     <!-- 分页 -->
     <div class="pagination-container">
@@ -91,7 +92,7 @@
         </el-form-item>
         <el-form-item label="评论权限">
           <el-switch
-            v-model="permissionForm.commentPermission"
+            v-model="permissionForm.comPermissions"
             active-text="启用"
             inactive-text="禁用"
           />
@@ -110,9 +111,10 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { API_BASE } from '@/config'
 
-// 模拟数据
-const users = ref([])
+const allUsers = ref([])       // 保存后端返回的全量用户
+const displayUsers = ref([])   // 当前页显示的数据
 const loading = ref(false)
 
 // 搜索表单
@@ -135,10 +137,8 @@ const permissionForm = reactive({
   id: '',
   username: '',
   githubId: '',
-  commentPermission: true
+  comPermissions: true
 })
-
-const permissionFormRef = ref()
 
 // 格式化日期
 const formatDate = (dateString) => {
@@ -147,56 +147,64 @@ const formatDate = (dateString) => {
   return date.toLocaleString('zh-CN')
 }
 
+// 更新当前页数据
+const updateDisplayUsers = () => {
+  const start = (pagination.currentPage - 1) * pagination.pageSize
+  const end = start + pagination.pageSize
+  displayUsers.value = allUsers.value.slice(start, end)
+}
+
 // 获取用户列表
 const fetchUsers = async () => {
   loading.value = true
   try {
-    // 模拟API调用
-    const mockUsers = [
-      {
-        id: 1,
-        username: 'admin',
-        githubId: 'gh-admin',
-        email: 'admin@blog.com',
-        registerTime: '2023-01-15T10:30:00Z',
-        lastLoginTime: '2023-06-15T10:30:00Z',
-        commentPermission: true,
-        isAdmin: true
-      },
-      {
-        id: 2,
-        username: 'user1',
-        githubId: 'gh-user1',
-        email: 'user1@blog.com',
-        registerTime: '2023-02-20T14:20:00Z',
-        lastLoginTime: '2023-06-10T14:20:00Z',
-        commentPermission: true,
-        isAdmin: false
-      },
-      {
-        id: 3,
-        username: 'user2',
-        githubId: 'gh-user2',
-        email: 'user2@blog.com',
-        registerTime: '2023-03-10T09:15:00Z',
-        lastLoginTime: '2023-05-10T09:15:00Z',
-        commentPermission: false,
-        isAdmin: false
-      }
-    ]
-    
-    users.value = mockUsers
-    pagination.total = mockUsers.length
-  } catch (error) {
-    ElMessage.error('获取用户列表失败')
+    const res = await fetch(API_BASE + '/admin/api/users', {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    })
+    const data = await res.json()
+    if (!res.ok || data.code !== 200) throw new Error(data.message || '获取用户失败')
+
+    allUsers.value = data.data
+    pagination.total = allUsers.value.length
+    pagination.currentPage = 1
+    updateDisplayUsers()
+  } catch (err) {
+    ElMessage.error(err.message)
   } finally {
     loading.value = false
   }
 }
 
-// 搜索用户
-const searchUsers = () => {
-  fetchUsers()
+// 搜索用户（保留后端请求）
+const searchUsers = async () => {
+  try {
+    let url = ''
+    if (searchForm.githubId) {
+      url = `/admin/api/users/github/${searchForm.githubId}`
+    } else if (searchForm.email) {
+      url = `/admin/api/users/email/${searchForm.email}`
+    } else if (searchForm.username) {
+      url = `/admin/api/users/username/${searchForm.username}`
+    } else {
+      return fetchUsers()
+    }
+
+    const res = await fetch(API_BASE + url, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    })
+    const data = await res.json()
+    if (!res.ok || data.code !== 200) throw new Error(data.message || '查询失败')
+
+    // 搜索结果可能是单个或多个
+    allUsers.value = Array.isArray(data.data) ? data.data : [data.data]
+    pagination.total = allUsers.value.length
+    pagination.currentPage = 1
+    updateDisplayUsers()
+  } catch (err) {
+    ElMessage.error(err.message)
+  }
 }
 
 // 重置搜索
@@ -212,18 +220,33 @@ const editPermissions = (user) => {
   permissionForm.id = user.id
   permissionForm.username = user.username
   permissionForm.githubId = user.githubId
-  permissionForm.commentPermission = user.commentPermission
+  permissionForm.comPermissions = user.comPermissions
   permissionDialogVisible.value = true
 }
 
 // 保存权限
-const savePermissions = () => {
-  // 模拟更新权限
-  const index = users.value.findIndex(u => u.id === permissionForm.id)
-  if (index !== -1) {
-    users.value[index].commentPermission = permissionForm.commentPermission
+const savePermissions = async () => {
+  try {
+    const res = await fetch(API_BASE + `/admin/api/users/${permissionForm.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ comPermissions: permissionForm.comPermissions })
+    })
+    const data = await res.json()
+    if (!res.ok || data.code !== 200) throw new Error(data.message || '保存失败')
+
+    // 更新前端数据
+    const index = allUsers.value.findIndex(u => u.id === permissionForm.id)
+    if (index !== -1) {
+      allUsers.value[index] = data.data
+      updateDisplayUsers()
+    }
+
     ElMessage.success('评论权限更新成功')
     permissionDialogVisible.value = false
+  } catch (err) {
+    ElMessage.error(err.message)
   }
 }
 
@@ -233,24 +256,35 @@ const deleteUser = (id) => {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    // 模拟删除操作
-    users.value = users.value.filter(user => user.id !== id)
-    ElMessage.success('用户删除成功')
-  }).catch(() => {
-    // 用户取消删除
-  })
+  }).then(async () => {
+    try {
+      const res = await fetch(API_BASE + `/admin/api/users/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      })
+      const data = await res.json()
+      if (!res.ok || data.code !== 200) throw new Error(data.message || '删除失败')
+
+      allUsers.value = allUsers.value.filter(user => user.id !== id)
+      pagination.total = allUsers.value.length
+      updateDisplayUsers()
+      ElMessage.success('用户删除成功')
+    } catch (err) {
+      ElMessage.error(err.message)
+    }
+  }).catch(() => {})
 }
 
 // 分页处理
 const handleSizeChange = (val) => {
   pagination.pageSize = val
-  fetchUsers()
+  pagination.currentPage = 1
+  updateDisplayUsers()
 }
-
 const handleCurrentChange = (val) => {
   pagination.currentPage = val
-  fetchUsers()
+  updateDisplayUsers()
 }
 
 onMounted(() => {
@@ -283,12 +317,5 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-}
-
-/* 响应式表格 */
-@media (max-width: 768px) {
-  .el-table-column {
-    padding: 5px;
-  }
 }
 </style>
