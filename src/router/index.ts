@@ -22,18 +22,6 @@ const router = createRouter({
       component: () => import('../views/user/UserList.vue'),
       meta: { requiresAuth: true }
     },
-    {
-      path: '/user/add',
-      name: 'UserAdd',
-      component: () => import('../views/user/UserAdd.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/user/permission',
-      name: 'UserPermission',
-      component: () => import('../views/user/UserPermission.vue'),
-      meta: { requiresAuth: true }
-    },
     // 评论管理路由
     {
       path: '/comment/list',
@@ -52,6 +40,12 @@ const router = createRouter({
       path:'/comment/likes',
       name:'CommentLikes',
       component: () => import('../views/comment/CommentLikes.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/comment/user-liked',
+      name: 'UserLikedComments',
+      component: () => import('../views/comment/UserLikedComments.vue'),
       meta: { requiresAuth: true }
     }
   ]
@@ -75,4 +69,3 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
-

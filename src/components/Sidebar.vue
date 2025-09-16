@@ -10,8 +10,6 @@
         <span>用户管理</span>
       </template>
       <el-menu-item index="/user/list">用户列表</el-menu-item>
-      <el-menu-item index="/user/add">新增用户</el-menu-item>
-      <el-menu-item index="/user/permission">评论权限控制</el-menu-item>
     </el-sub-menu>
     <el-sub-menu index="2">
       <template #title>
@@ -20,6 +18,7 @@
       </template>
       <el-menu-item index="/comment/list">评论列表</el-menu-item>
       <el-menu-item index="/comment/likes">点赞统计</el-menu-item>
+      <el-menu-item index="/comment/user-liked">用户点赞记录</el-menu-item>
     </el-sub-menu>
   </el-menu>
 </template>

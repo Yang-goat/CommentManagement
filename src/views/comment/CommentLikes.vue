@@ -5,15 +5,6 @@
       <el-button @click="refreshData">刷新</el-button>
     </div>
     
-    <!-- 排序选项 -->
-    <div class="sort-options">
-      <el-radio-group v-model="sortOption" @change="sortComments">
-        <el-radio-button label="most">最多点赞</el-radio-button>
-        <el-radio-button label="least">最少点赞</el-radio-button>
-        <el-radio-button label="recent">最新评论</el-radio-button>
-      </el-radio-group>
-    </div>
-    
     <!-- 点赞统计表格 -->
     <el-table :data="sortedComments" style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
@@ -29,7 +20,7 @@
           <el-tag type="primary">{{ scope.row.likes }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="评论时间" width="200">
+      <el-table-column prop="createTime" label="评论时间" width="200" sortable>
         <template #default="scope">
           {{ formatDate(scope.row.createTime) }}
         </template>
@@ -38,9 +29,9 @@
         <template #default="scope">
           <el-button 
             size="small" 
-            @click="viewCommentDetail(scope.row.id)"
+            @click="viewLikedUsers(scope.row)"
           >
-            查看详情
+            查看点赞用户
           </el-button>
         </template>
       </el-table-column>
@@ -58,6 +49,39 @@
         @current-change="handleCurrentChange"
       />
     </div>
+    
+    <!-- 点赞用户列表对话框 -->
+    <el-dialog v-model="likedUsersDialogVisible" :title="`给评论 ${currentComment?.id} 点赞的用户`" width="800px">
+      <el-table :data="pagedLikedUsers" style="width: 100%" v-loading="usersLoading" height="400px">
+        <el-table-column prop="id" label="用户ID" width="80" />
+        <el-table-column prop="username" label="用户名" width="150" />
+        <el-table-column prop="email" label="邮箱" width="200" />
+        <el-table-column prop="likeTime" label="点赞时间" width="170">
+          <template #default="scope">
+            {{ formatDate(scope.row.likeTime) }}
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <!-- 点赞用户分页 -->
+      <div class="pagination-container" style="margin-top: 20px; display: flex; justify-content: flex-end;">
+        <el-pagination
+          v-model:current-page="usersPagination.currentPage"
+          v-model:page-size="usersPagination.pageSize"
+          :page-sizes="[5, 10, 20]"
+          :total="usersPagination.total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleUsersSizeChange"
+          @current-change="handleUsersCurrentChange"
+        />
+      </div>
+      
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="likedUsersDialogVisible = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -71,7 +95,12 @@ const router = useRouter()
 // 评论数据
 const comments = ref([])
 const loading = ref(false)
-const sortOption = ref('most')
+
+// 点赞用户相关
+const likedUsersDialogVisible = ref(false)
+const likedUsers = ref([])
+const usersLoading = ref(false)
+const currentComment = ref(null)
 
 // 分页
 const pagination = reactive({
@@ -80,10 +109,25 @@ const pagination = reactive({
   total: 0
 })
 
+// 点赞用户分页
+const usersPagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+  total: 0
+})
+
 // 排序后的评论
 const sortedComments = computed(() => {
-  // 这里返回原始评论数据，排序在sortComments方法中处理
-  return comments.value
+  // 返回排序后的评论数据，默认按评论时间降序排列（最新评论在前）
+  const sorted = [...comments.value]
+  return sorted.sort((a, b) => new Date(b.createTime) - new Date(a.createTime))
+})
+
+// 分页后的点赞用户
+const pagedLikedUsers = computed(() => {
+  const start = (usersPagination.currentPage - 1) * usersPagination.pageSize
+  const end = start + usersPagination.pageSize
+  return likedUsers.value.slice(start, end)
 })
 
 // 格式化日期
@@ -149,9 +193,6 @@ const fetchCommentLikes = async () => {
     
     comments.value = mockComments
     pagination.total = mockComments.length
-    
-    // 初始排序
-    sortComments()
   } catch (error) {
     ElMessage.error('获取评论点赞数据失败')
   } finally {
@@ -159,29 +200,42 @@ const fetchCommentLikes = async () => {
   }
 }
 
-// 排序评论
-const sortComments = () => {
-  switch (sortOption.value) {
-    case 'most':
-      comments.value.sort((a, b) => b.likes - a.likes)
-      break
-    case 'least':
-      comments.value.sort((a, b) => a.likes - b.likes)
-      break
-    case 'recent':
-      comments.value.sort((a, b) => new Date(b.createTime) - new Date(a.createTime))
-      break
+// 获取点赞用户列表
+const fetchLikedUsers = async (comment) => {
+  usersLoading.value = true
+  try {
+    // 模拟API调用获取点赞用户列表
+    // 生成更多模拟数据以展示分页效果
+    const mockLikedUsers = []
+    for (let i = 1; i <= 35; i++) {
+      mockLikedUsers.push({
+        id: 100 + i,
+        username: `user${i}`,
+        email: `user${i}@example.com`,
+        likeTime: `2023-05-11T${(i % 24).toString().padStart(2, '0')}:${(i % 60).toString().padStart(2, '0')}:00Z`
+      })
+    }
+    
+    likedUsers.value = mockLikedUsers
+    usersPagination.total = mockLikedUsers.length
+    usersPagination.currentPage = 1
+  } catch (error) {
+    ElMessage.error('获取点赞用户列表失败')
+  } finally {
+    usersLoading.value = false
   }
+}
+
+// 查看点赞用户
+const viewLikedUsers = async (comment) => {
+  currentComment.value = comment
+  likedUsersDialogVisible.value = true
+  await fetchLikedUsers(comment)
 }
 
 // 刷新数据
 const refreshData = () => {
   fetchCommentLikes()
-}
-
-// 查看评论详情
-const viewCommentDetail = (id) => {
-  router.push(`/comment/edit/${id}`)
 }
 
 // 分页处理
@@ -193,6 +247,16 @@ const handleSizeChange = (val) => {
 const handleCurrentChange = (val) => {
   pagination.currentPage = val
   fetchCommentLikes()
+}
+
+// 点赞用户分页处理
+const handleUsersSizeChange = (val) => {
+  usersPagination.pageSize = val
+  usersPagination.currentPage = 1
+}
+
+const handleUsersCurrentChange = (val) => {
+  usersPagination.currentPage = val
 }
 
 onMounted(() => {
@@ -217,10 +281,6 @@ onMounted(() => {
   gap: 10px;
 }
 
-.sort-options {
-  margin-bottom: 20px;
-}
-
 .comment-content {
   white-space: nowrap;
   overflow: hidden;
@@ -243,10 +303,6 @@ onMounted(() => {
   .el-button {
     width: 100%;
     margin-top: 10px;
-  }
-  
-  .sort-options {
-    text-align: center;
   }
 }
 </style>
