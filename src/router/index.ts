@@ -30,13 +30,6 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/comment/edit/:id',
-      name: 'CommentEdit',
-      component: () => import('../views/comment/CommentEdit.vue'),
-      props: true,
-      meta: { requiresAuth: true }
-    },
-    {
       path:'/comment/likes',
       name:'CommentLikes',
       component: () => import('../views/comment/CommentLikes.vue'),
