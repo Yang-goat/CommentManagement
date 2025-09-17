@@ -26,19 +26,26 @@
       empty-text="暂无数据"
       @sort-change="handleSortChange"
     >
-      <el-table-column prop="id" label="点赞ID" width="100" />
-      <el-table-column prop="user.username" label="用户名" width="120" />
-      <el-table-column prop="comment.articleTitle" label="文章标题" width="200" />
-      <el-table-column prop="comment.content" label="评论内容">
+      <el-table-column prop="likeId" label="点赞ID" width="100" />
+      
+      <el-table-column label="用户名" width="120">
+        <template #default="scope">
+          {{ scope.row.user?.username }}
+        </template>
+      </el-table-column>
+
+      <el-table-column label="文章标题" width="200">
+        <template #default="scope">
+          {{ scope.row.comment?.articlePath }}
+        </template>
+      </el-table-column>
+
+      <el-table-column label="评论内容">
         <template #default="scope">
           <div class="comment-content">{{ scope.row.comment?.content }}</div>
         </template>
       </el-table-column>
-      <!-- <el-table-column prop="comment.likes" label="评论点赞数" width="120" sortable="custom">
-        <template #default="scope">
-          <el-tag type="primary">{{ scope.row.comment?.likes }}</el-tag>
-        </template>
-      </el-table-column> -->
+
       <el-table-column prop="createdAt" label="点赞时间" width="200" sortable="custom">
         <template #default="scope">
           {{ formatDate(scope.row.createdAt) }}
@@ -142,10 +149,8 @@ const fetchLikedComments = async (username) => {
   try {
     const resp = await fetch(`${API_BASE}/admin/api/comment-likes/username/${encodeURIComponent(username)}`)
     const res = await resp.json()
-    console.log(res);
     if (res.code === 200) {
       allLikedComments.value = res.data
-      console.log(allLikedComments);
     } else {
       ElMessage.error(res.message || '获取用户点赞评论列表失败')
     }
