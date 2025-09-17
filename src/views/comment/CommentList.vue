@@ -32,17 +32,17 @@
     </div>
     
     <!-- 评论表格 -->
-    <el-table :data="displayComments" style="width: 100%" v-loading="loading">
-      <el-table-column prop="commentId" label="评论ID" width="100" />
-      <el-table-column prop="userId" label="用户ID" width="120" />
+    <el-table :data="displayComments" style="width: 100%" v-loading="loading" @sort-change="handleSortChange">
+      <el-table-column prop="commentId" label="评论ID" width="100" sortable="custom" />
+      <el-table-column prop="userId" label="用户ID" width="120" sortable="custom" />
       <el-table-column prop="username" label="用户名" width="150" />
-      <el-table-column prop="articlePath" label="文章路径" width="200" />
+      <el-table-column prop="articlePath" label="文章路径" width="200" sortable="custom" />
       <el-table-column prop="content" label="评论内容">
         <template #default="scope">
           <div class="comment-content">{{ scope.row.content }}</div>
         </template>
       </el-table-column>
-      <el-table-column prop="createdAt" label="评论时间" width="200">
+      <el-table-column prop="createdAt" label="评论时间" width="200" sortable="custom">
         <template #default="scope">
           {{ formatDate(scope.row.createdAt) }}
         </template>
@@ -98,6 +98,12 @@ const pagination = reactive({
   total: 0
 })
 
+// 当前排序状态 - 默认按评论ID升序排序
+const sortState = reactive({
+  prop: 'commentId',
+  order: 'ascending'
+})
+
 // 格式化日期
 const formatDate = (dateString) => {
   if (!dateString) return ''
@@ -117,6 +123,39 @@ const flattenComments = (list) => {
     createdAt: c.createdAt,
     likeCount: c.likeCount
   }))
+}
+
+// 排序处理
+const handleSortChange = ({ prop, order }) => {
+  sortState.prop = prop
+  sortState.order = order
+  
+  if (!order) {
+    // 如果没有排序，则恢复按评论ID排序
+    allComments.value = [...allComments.value].sort((a, b) => a.commentId - b.commentId)
+    sortState.prop = 'commentId'
+    sortState.order = 'ascending'
+  } else {
+    // 根据属性和顺序进行排序
+    allComments.value = [...allComments.value].sort((a, b) => {
+      let valueA = a[prop]
+      let valueB = b[prop]
+      
+      // 对于日期字段需要特殊处理
+      if (prop === 'createdAt') {
+        valueA = new Date(valueA).getTime()
+        valueB = new Date(valueB).getTime()
+      }
+      
+      if (order === 'ascending') {
+        return valueA > valueB ? 1 : valueA < valueB ? -1 : 0
+      } else {
+        return valueA < valueB ? 1 : valueA > valueB ? -1 : 0
+      }
+    })
+  }
+  
+  updateDisplayComments()
 }
 
 // 更新当前页数据
@@ -140,7 +179,9 @@ const fetchComments = async () => {
     allComments.value = flattenComments(data.data)
     pagination.total = allComments.value.length
     pagination.currentPage = 1
-    updateDisplayComments()
+    
+    // 应用默认排序（按评论ID升序）
+    handleSortChange(sortState)
   } catch (error) {
     ElMessage.error(error.message)
   } finally {
@@ -175,7 +216,9 @@ const searchComments = async () => {
     allComments.value = flattenComments(Array.isArray(data.data) ? data.data : [data.data])
     pagination.total = allComments.value.length
     pagination.currentPage = 1
-    updateDisplayComments()
+    
+    // 应用当前排序状态
+    handleSortChange(sortState)
   } catch (err) {
     ElMessage.error(err.message)
   }

@@ -26,7 +26,7 @@
       empty-text="暂无数据"
       @sort-change="handleSortChange"
     >
-      <el-table-column prop="likeId" label="点赞ID" width="100" />
+      <el-table-column prop="likeId" label="点赞ID" width="100" sortable="custom" />
       
       <el-table-column label="用户名" width="120">
         <template #default="scope">
@@ -34,7 +34,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="文章标题" width="200">
+      <el-table-column label="文章标题" width="200" sortable="custom">
         <template #default="scope">
           {{ scope.row.comment?.articlePath }}
         </template>
@@ -120,18 +120,24 @@ const pagedComments = computed(() => {
   // 排序
   if (sortParams.prop && sortParams.order) {
     data.sort((a, b) => {
-      let aValue = a[sortParams.prop]
-      let bValue = b[sortParams.prop]
+      let aValue, bValue;
 
-      if (sortParams.prop === 'createdAt') {
-        aValue = new Date(aValue).getTime()
-        bValue = new Date(bValue).getTime()
+      // 特殊处理嵌套属性
+      if (sortParams.prop === 'likeId') {
+        aValue = a.likeId
+        bValue = b.likeId
+      } else if (sortParams.prop === 'articlePath') {
+        aValue = a.comment?.articlePath || ''
+        bValue = b.comment?.articlePath || ''
+      } else if (sortParams.prop === 'createdAt') {
+        aValue = new Date(a.createdAt).getTime()
+        bValue = new Date(b.createdAt).getTime()
       }
 
       if (sortParams.order === 'ascending') {
-        return aValue > bValue ? 1 : -1
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0
       } else {
-        return aValue < bValue ? 1 : -1
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0
       }
     })
   }

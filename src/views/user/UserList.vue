@@ -25,7 +25,7 @@
     
     <!-- 用户表格 -->
     <el-table :data="displayUsers" style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column prop="id" label="ID" width="100" />
       <el-table-column prop="username" label="用户名" width="150" />
       <el-table-column prop="githubId" label="GitHub ID" width="150" />
       <el-table-column prop="email" label="邮箱" width="200" />
@@ -39,14 +39,14 @@
           {{ formatDate(scope.row.updatedAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="权限状态" width="120">
+      <el-table-column label="权限状态" width="150">
         <template #default="scope">
           <el-tag :type="scope.row.comPermissions ? 'success' : 'danger'">
             {{ scope.row.comPermissions ? '启用' : '禁用' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180">
+      <el-table-column label="操作" min-width="200">
         <template #default="scope">
           <el-button 
             size="small" 
@@ -317,5 +317,11 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .el-table-column {
+    padding: 5px;
+  }
 }
 </style>
